@@ -1449,11 +1449,9 @@ func buildOllamaContainer(instance *openclawv1alpha1.OpenClawInstance) corev1.Co
 		tag = DefaultImageTag
 	}
 
-	var image string
+	image := repo + ":" + tag
 	if instance.Spec.Ollama.Image.Digest != "" {
 		image = repo + "@" + instance.Spec.Ollama.Image.Digest
-	} else {
-		image = repo + ":" + tag
 	}
 	image = ApplyRegistryOverride(image, instance.Spec.Registry)
 

@@ -354,6 +354,7 @@ func ApplyRegistryOverride(image, registry string) string {
 	if registry == "" {
 		return image
 	}
+	registry = strings.TrimRight(registry, "/")
 
 	slashIndex := strings.Index(image, "/")
 	if slashIndex == -1 {

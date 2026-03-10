@@ -96,6 +96,12 @@ func TestApplyRegistryOverride(t *testing.T) {
 			registry: "my-registry.example.com",
 			expected: "my-registry.example.com/ollama/ollama@sha256:def456",
 		},
+		{
+			name:     "registry with trailing slash",
+			image:    "nginx:latest",
+			registry: "my-registry.example.com/",
+			expected: "my-registry.example.com/nginx:latest",
+		},
 	}
 
 	for _, tt := range tests {
@@ -140,6 +146,52 @@ func TestGetImage_WithRegistry(t *testing.T) {
 			got := GetImage(instance)
 			if got != tt.expected {
 				t.Errorf("GetImage() = %q, want %q", got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestGetTailscaleImage_WithRegistry(t *testing.T) {
+	tests := []struct {
+		name     string
+		image    openclawv1alpha1.TailscaleImageSpec
+		registry string
+		expected string
+	}{
+		{
+			name:     "default image with registry",
+			image:    openclawv1alpha1.TailscaleImageSpec{},
+			registry: "my-registry.example.com",
+			expected: "my-registry.example.com/tailscale/tailscale:latest",
+		},
+		{
+			name: "custom image with registry",
+			image: openclawv1alpha1.TailscaleImageSpec{
+				Repository: "ghcr.io/custom/tailscale",
+				Tag:        "v1.50",
+			},
+			registry: "my-registry.example.com",
+			expected: "my-registry.example.com/custom/tailscale:v1.50",
+		},
+		{
+			name: "registry with trailing slash",
+			image: openclawv1alpha1.TailscaleImageSpec{
+				Repository: "tailscale/tailscale",
+				Tag:        "v1.50",
+			},
+			registry: "my-registry.example.com/",
+			expected: "my-registry.example.com/tailscale/tailscale:v1.50",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			instance := newTestInstance("test")
+			instance.Spec.Tailscale.Image = tt.image
+			instance.Spec.Registry = tt.registry
+			got := GetTailscaleImage(instance)
+			if got != tt.expected {
+				t.Errorf("GetTailscaleImage() = %q, want %q", got, tt.expected)
 			}
 		})
 	}
