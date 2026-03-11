@@ -788,8 +788,7 @@ func BuildSkillsScript(instance *openclawv1alpha1.OpenClawInstance) string {
 	var lines []string
 	lines = append(lines, "set -e")
 	if hasClawHubSkills(skills) {
-		lines = append(lines, clawHubSkillsSetup)
-		lines = append(lines, skillInstallWrapper)
+		lines = append(lines, clawHubSkillsSetup, skillInstallWrapper)
 	}
 	for _, skill := range skills {
 		lines = append(lines, parseSkillEntry(skill))
