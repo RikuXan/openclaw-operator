@@ -167,8 +167,8 @@ func (r *OpenClawInstanceReconciler) reconcileDeleteWithBackup(ctx context.Conte
 	}
 
 	// Reconcile mirror Secret for secretKeyRef (no-op for env-auth mode)
-	if err := r.reconcileS3MirrorSecret(ctx, instance, creds); err != nil {
-		return ctrl.Result{}, err
+	if mirrorErr := r.reconcileS3MirrorSecret(ctx, instance, creds); mirrorErr != nil {
+		return ctrl.Result{}, mirrorErr
 	}
 
 	tenantID := getTenantID(instance)

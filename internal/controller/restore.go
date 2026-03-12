@@ -70,8 +70,8 @@ func (r *OpenClawInstanceReconciler) reconcileRestore(ctx context.Context, insta
 	}
 
 	// Reconcile mirror Secret for secretKeyRef (no-op for env-auth mode)
-	if err := r.reconcileS3MirrorSecret(ctx, instance, creds); err != nil {
-		return ctrl.Result{}, false, err
+	if mirrorErr := r.reconcileS3MirrorSecret(ctx, instance, creds); mirrorErr != nil {
+		return ctrl.Result{}, false, mirrorErr
 	}
 
 	jobName := restoreJobName(instance)
