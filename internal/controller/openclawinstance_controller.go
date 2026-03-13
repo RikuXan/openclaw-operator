@@ -1032,6 +1032,16 @@ func (r *OpenClawInstanceReconciler) reconcileStatefulSet(ctx context.Context, i
 		})
 	}
 
+	// Compute gateway token secret name once for both VCT-change detection and CreateOrUpdate
+	var gwSecretName string
+	if gatewayToken != "" {
+		if instance.Spec.Gateway.ExistingSecret != "" {
+			gwSecretName = instance.Spec.Gateway.ExistingSecret
+		} else {
+			gwSecretName = resources.GatewayTokenSecretName(instance)
+		}
+	}
+
 	sts := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      resources.StatefulSetName(instance),
@@ -1043,14 +1053,6 @@ func (r *OpenClawInstanceReconciler) reconcileStatefulSet(ctx context.Context, i
 	// transitions (e.g. enabling/disabling HPA with persistence) and
 	// delete+recreate the StatefulSet when VCTs need to change.
 	if err := r.Client.Get(ctx, client.ObjectKeyFromObject(sts), sts); err == nil {
-		var gwSecretName string
-		if gatewayToken != "" {
-			if instance.Spec.Gateway.ExistingSecret != "" {
-				gwSecretName = instance.Spec.Gateway.ExistingSecret
-			} else {
-				gwSecretName = resources.GatewayTokenSecretName(instance)
-			}
-		}
 		desired := resources.BuildStatefulSet(instance, gwSecretName, skillPacks)
 		resources.NormalizeStatefulSet(desired)
 		if !resources.VolumeClaimTemplatesEqual(sts.Spec.VolumeClaimTemplates, desired.Spec.VolumeClaimTemplates) {
@@ -1071,15 +1073,6 @@ func (r *OpenClawInstanceReconciler) reconcileStatefulSet(ctx context.Context, i
 		},
 	}
 	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, sts, func() error {
-		// Pass the gateway token secret name so the env var can be injected
-		var gwSecretName string
-		if gatewayToken != "" {
-			if instance.Spec.Gateway.ExistingSecret != "" {
-				gwSecretName = instance.Spec.Gateway.ExistingSecret
-			} else {
-				gwSecretName = resources.GatewayTokenSecretName(instance)
-			}
-		}
 		desired := resources.BuildStatefulSet(instance, gwSecretName, skillPacks)
 		resources.NormalizeStatefulSet(desired)
 		sts.Labels = desired.Labels
