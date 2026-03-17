@@ -136,7 +136,7 @@ type OpenClawInstanceSpec struct {
 	// +optional
 	RuntimeDeps RuntimeDepsSpec `json:"runtimeDeps,omitempty"`
 
-	// Gateway configures the gateway authentication token
+	// Gateway configures the gateway reverse proxy and authentication token
 	// +optional
 	Gateway GatewaySpec `json:"gateway,omitempty"`
 
@@ -1227,8 +1227,16 @@ type RuntimeDepsSpec struct {
 	Python bool `json:"python,omitempty"`
 }
 
-// GatewaySpec configures the gateway authentication token
+// GatewaySpec configures the gateway reverse proxy and authentication token
 type GatewaySpec struct {
+	// Enabled controls whether the built-in gateway reverse proxy sidecar is
+	// injected into the pod. When false, no proxy container is added and health
+	// probes target the OpenClaw gateway directly on port 18789.
+	// Defaults to true.
+	// +optional
+	// +kubebuilder:default=true
+	Enabled *bool `json:"enabled,omitempty"`
+
 	// ExistingSecret is the name of a user-managed Secret containing the gateway token.
 	// The Secret must have a key named "token". When set, the operator skips
 	// auto-generating a gateway token Secret and uses this Secret instead.

@@ -107,7 +107,11 @@ func BuildConfigMapFromBytes(instance *openclawv1alpha1.OpenClawInstance, baseCo
 
 	data := map[string]string{
 		"openclaw.json": configContent,
-		NginxConfigKey:  nginxStreamConfig(),
+	}
+
+	// Only include nginx config when the gateway proxy is enabled
+	if IsGatewayProxyEnabled(instance) {
+		data[NginxConfigKey] = nginxStreamConfig()
 	}
 
 	// Add Tailscale serve config when enabled (sidecar reads this via TS_SERVE_CONFIG)
@@ -407,12 +411,13 @@ func enrichConfigWithBrowser(configJSON []byte, instance *openclawv1alpha1.OpenC
 	return json.Marshal(config)
 }
 
-// enrichConfigWithGatewayBind injects gateway.bind=loopback into the config
-// JSON. The gateway proxy sidecar handles external access, so the gateway
-// process always binds to loopback. If the user has already set gateway.bind,
-// the config is returned unchanged (user override wins).
+// enrichConfigWithGatewayBind injects gateway.bind into the config JSON.
+// When the gateway proxy sidecar is enabled, the gateway binds to loopback
+// (the proxy handles external access). When disabled, the gateway must bind
+// to 0.0.0.0 so the kubelet and Service can reach it directly.
+// If the user has already set gateway.bind, the config is returned unchanged
+// (user override wins).
 func enrichConfigWithGatewayBind(configJSON []byte, instance *openclawv1alpha1.OpenClawInstance) ([]byte, error) {
-	_ = instance // signature kept for enrichment pipeline consistency
 	var config map[string]interface{}
 	if err := json.Unmarshal(configJSON, &config); err != nil {
 		return configJSON, nil // not a JSON object, return unchanged
@@ -428,10 +433,46 @@ func enrichConfigWithGatewayBind(configJSON []byte, instance *openclawv1alpha1.O
 		return configJSON, nil
 	}
 
-	gw["bind"] = GatewayBindLoopback
+	if IsGatewayProxyEnabled(instance) {
+		gw["bind"] = GatewayBindLoopback
+	} else {
+		gw["bind"] = GatewayBindAllInterfaces
+	}
 	config["gateway"] = gw
 
 	return json.Marshal(config)
+}
+
+// HasGatewayBindConflict returns true when the gateway proxy is disabled but
+// the user has manually set gateway.bind to loopback in their config JSON.
+// This combination makes the pod unreachable because nothing is listening on
+// the external interface.
+func HasGatewayBindConflict(instance *openclawv1alpha1.OpenClawInstance) bool {
+	if IsGatewayProxyEnabled(instance) {
+		return false
+	}
+
+	configBytes := []byte("{}")
+	if instance.Spec.Config.Raw != nil && len(instance.Spec.Config.Raw.Raw) > 0 {
+		configBytes = instance.Spec.Config.Raw.Raw
+	}
+
+	var config map[string]interface{}
+	if err := json.Unmarshal(configBytes, &config); err != nil {
+		return false
+	}
+
+	gw, _ := config["gateway"].(map[string]interface{})
+	if gw == nil {
+		return false
+	}
+
+	bind, ok := gw["bind"]
+	if !ok {
+		return false
+	}
+	bindStr, ok := bind.(string)
+	return ok && (bindStr == GatewayBindLoopback || bindStr == "127.0.0.1")
 }
 
 // enrichConfigWithTrustedProxies ensures 127.0.0.0/8 is present in
